@@ -1,0 +1,79 @@
+pipelines:
+  - name: check
+    description: Newly uploaded patchsets enter this pipeline to receive an initial +/-1 Verified vote from Jenkins.
+    success-message: Build succeeded.
+    failure-message: Build failed.
+    manager: DependentPipelineManager
+    source: gerrit
+    precedence: normal
+    require:
+      open: True
+      current-patchset: True
+    trigger:
+      gerrit:
+        - event: patchset-created
+        - event: change-restored
+        - event: comment-added
+          comment: (?i)^(Patch Set [0-9]+:)?( [\w\\+-]*)*(\n\n)?\s*(recheck project)
+        - event: comment-added
+          require-approval:
+            - verified: [-1, -2]
+            - username: ubuntu
+          approval:
+            - workflow: 1
+    start:
+      gerrit:
+        verified: 0
+    success:
+      gerrit:
+        verfied: 1
+    failure:
+      gerrit:
+        verified: -1
+
+  - name: tests
+    manager: DependentPipelineManager
+    trigger:
+      gerrit:
+        - event: patchset-created
+          email_filter: ^.*@example.org$
+    success:
+      gerrit:
+        verified: 1
+    failure:
+      gerrit:
+        verified: -1
+
+  - name: port
+    manager: DependentPipelineManager
+    trigger:
+      gerrit:
+        - event: ref-updated
+          ref: ^(?!refs/).*$
+
+  - name: gate
+    manager: DependentPipelineManager
+    trigger:
+      gerrit:
+        - event: comment-added
+          approval: 
+            - approved: 1
+    start: 
+      gerrit:
+        verified: 0
+    success:
+      gerrit:
+        verified: 1
+    failure:
+      gerrit:
+        verified: -1
+
+jobs:
+  - name: gerritdemo
+    branch: master
+    voting: true
+
+projects: 
+  - name: gerritdemo
+    check:
+      - gerritdemo
